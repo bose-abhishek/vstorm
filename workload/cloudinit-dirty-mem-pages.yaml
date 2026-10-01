@@ -168,8 +168,10 @@ write_files:
       # copy under write_files (path /opt/vstorm-boot-timestamp.sh); keep those embeds
       # identical (tests/15-boot-timestamp.bats checks byte-for-byte parity).
       set -euo pipefail
+
       BOOT_TIMESTAMP_FILE="${RESULT_TIMESTAMP_FILE:-/root/timestamp.txt}"
       mkdir -p "$(dirname "$BOOT_TIMESTAMP_FILE")"
+
       _ts_unix=$(date -u +%s)
       _ts_human=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
       if [[ -f "$BOOT_TIMESTAMP_FILE" ]]; then
@@ -177,6 +179,7 @@ write_files:
       else
           printf '%s, %s\n' "$_ts_unix" "$_ts_human" > "$BOOT_TIMESTAMP_FILE"
       fi
+
       BOOT_TIMESTAMP_UNIX=""
       while IFS=',' read -r _bu _bt || [[ -n "${_bu:-}" ]]; do
           _bu="${_bu//[[:space:]]/}"
@@ -189,7 +192,9 @@ write_files:
           echo "WARN: no numeric boot unix in $BOOT_TIMESTAMP_FILE; using service start" >&2
           BOOT_TIMESTAMP_UNIX="$_ts_unix"
       fi
+
       echo "vstorm-boot-timestamp: file=$BOOT_TIMESTAMP_FILE boot_unix=$BOOT_TIMESTAMP_UNIX service_unix=$_ts_unix"
+
       [[ -n "${RESULT_SERVER_URL:-}" ]] || exit 0
       if [[ -z "${VSTORM_BATCH_ID:-}" ]]; then
           echo "RESULT_SERVER_URL set but VSTORM_BATCH_ID unset; skip boot heartbeat POST" >&2
@@ -203,16 +208,20 @@ write_files:
           echo "curl missing; skip boot heartbeat POST" >&2
           exit 0
       fi
+
       vm_name="${VSTORM_VM_NAME:-$(hostname -s 2>/dev/null || hostname || echo unknown)}"
       hostname_s=$(hostname -s 2>/dev/null || hostname || echo unknown)
       payload_file=$(mktemp)
       trap 'rm -f "$payload_file"' EXIT
+
       python3 - "$payload_file" "$BOOT_TIMESTAMP_UNIX" "$_ts_unix" \
           "$hostname_s" "${VSTORM_BATCH_ID}" "$vm_name" <<'PY'
       import json, sys
       from datetime import datetime, timezone
+
       def fmt_utc(unix):
           return datetime.fromtimestamp(int(unix), tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
       out, boot_unix, service_unix, hostname, batch_id, vm_name = sys.argv[1:7]
       boot_unix = int(boot_unix)
       service_unix = int(service_unix)
@@ -235,6 +244,7 @@ write_files:
           json.dump(payload, f)
           f.write("\n")
       PY
+
       RESULT_RETRY="${RESULT_RETRY:-3}"
       RESULT_TIMEOUT="${RESULT_TIMEOUT:-30}"
       auth_args=()
